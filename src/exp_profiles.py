@@ -113,20 +113,6 @@ for i in range (n_exposures):
             cobra_L[i,j,k] = cwe.calculate_length_scale(cobra_U[i,j,k,:], cobra_dt, cobra_Uav[i,k])
 
 
-#Calculate the roof height turbulence intensity. The TI profile from the wind 
-#tunnel is a bit messy around the roof height, thus necessary to fit a line 
-#around the roof and extract a representative value from the fitted curve. 
-
-#Streamwise turbulence intensity at the building height for each terrian.
-Iu_H = np.zeros(n_exposures)
-
-for i in range (n_exposures):    
-    z_fit = np.linspace(0.25*H, 1.25*H, 25)
-    Iu_fit = np.interp(z_fit, std_z, std_Iu[i,:])
-    func = UnivariateSpline(z_fit, Iu_fit)    
-    Iu_fit = func(z_fit)
-    Iu_H[i] = np.interp(H, z_fit, Iu_fit)
-
 #In the standard profiles from the BLWTL, only streamwise turbulence intensity
 #is given, therefore, the turbulence intensities in the other directions are 
 #are calculated using the cobra probe measurments. 
@@ -145,7 +131,7 @@ for i in range (n_exposures):
 #The final profiles to be used in the CFD
 #The turbulence length scale profile from the cobra probe measurment is 
 #very dispersed. A spline is used to fit the measured data for cfd use
-fit_z = np.linspace(0.0125, 2.5, 200) + 0.0072
+fit_z = np.linspace(0.0, 2.5, 200) + 0.004939
 fit_L = np.zeros((n_exposures, n_compnt, len(fit_z)))
 fit_Uav = np.zeros((n_exposures, len(fit_z)))
 fit_I = np.zeros((n_exposures, n_compnt, len(fit_z)))
@@ -155,6 +141,8 @@ for i in range (n_exposures):
     fit_Uav[i,:] = spl(fit_z)
     for j in range(n_compnt):
         fit_I[i,j,:] = np.interp(fit_z, std_z, std_I[i,j,:])        
+#        spl = UnivariateSpline(std_z, std_I[i,j,:], k=5,  ext=3, s=0.01)
+#        fit_I[i,j,:] = spl(fit_z)
         spl = UnivariateSpline(cobra_z, cobra_L[i,j,:], k=3,  ext=0)
         fit_L[i,j,:] = spl(fit_z)
         #Linearly regress the values above 2H because of limitted data
@@ -176,12 +164,12 @@ for i in range (n_exposures):
     ax.set_title(exposure_names[i], fontsize=24)
     
     ax.plot(fit_Uav[i,:]/U_H[i], fit_z/H,  'k-', 
-            markersize=8, markerfacecolor='none',markeredgewidth=1.5) 
+            markersize=7, markerfacecolor='none',markeredgewidth=1.5) 
     
     ax.plot(std_Uav[i,:]/U_H[i], std_z/H,  'bo', 
-            markersize=8, markerfacecolor='none',markeredgewidth=1.5)    
+            markersize=7, markerfacecolor='none',markeredgewidth=1.5)    
     ax.plot(cobra_Uav[i,:]/U_H[i], cobra_z/H,  'rs', 
-            markersize=8, markerfacecolor='none',markeredgewidth=1.5)    
+            markersize=7, markerfacecolor='none',markeredgewidth=1.5)    
     if i == 0:    
         ax.set_ylabel('$z/H$')        
         ax.legend(['Fitted', 'Standard','CobraProbe'], loc=0, framealpha=1.0)   
@@ -208,12 +196,12 @@ for j in range(n_compnt):
         ax.set_xlabel('$' + plot_name[j] + '$') 
         ax.set_title(exposure_names[i], fontsize=24)
         
-        ax.plot(fit_I[i,j,:], fit_z/H,  'k-', markersize=8, 
+        ax.plot(fit_I[i,j,:], fit_z/H,  'k-', markersize=7, 
                 markerfacecolor='none',markeredgewidth=1.5)  
         
-        ax.plot(std_I[i,j,:], std_z/H,  'bo', markersize=8, 
+        ax.plot(std_I[i,j,:], std_z/H,  'bo', markersize=7, 
                 markerfacecolor='none',markeredgewidth=1.5)    
-        ax.plot(cobra_I[i,j,:], cobra_z/H,  'rs', markersize=8, 
+        ax.plot(cobra_I[i,j,:], cobra_z/H,  'rs', markersize=7, 
                 markerfacecolor='none',markeredgewidth=1.5)    
         if i == 0:    
             ax.set_ylabel('$z/H$')        
@@ -241,9 +229,9 @@ for j in range(n_compnt):
         ax.set_xlabel('$' + plot_name[j] + '/H$') 
         ax.set_title(exposure_names[i], fontsize=24)
         
-        ax.plot(fit_L[i,j,:]/H, fit_z/H,  'k-', markersize=8, 
+        ax.plot(fit_L[i,j,:]/H, fit_z/H,  'k-', markersize=7, 
                 markerfacecolor='none',markeredgewidth=1.5)    
-        ax.plot(cobra_L[i,j,:]/H, cobra_z/H,  'rs', markersize=8, 
+        ax.plot(cobra_L[i,j,:]/H, cobra_z/H,  'rs', markersize=7, 
                 markerfacecolor='none',markeredgewidth=1.5)    
         
         if i == 0:    
@@ -262,9 +250,11 @@ for j in range(n_compnt):
 
 #Print the turbulence intensity at roof height for each exposure condition
 print("Roof-height stream-wise mean velocity and turbulence intensities(%):")
-print("\tTerrain\tUh(m/s)\tIu(%)")
+print("\tTerrain\tU(m/s)\tIu(%)")
 for i in range (n_exposures):
-    print(("\t" + exposure_names[i] + '\t%0.2f\t%0.2f')%(U_H[i], 100*Iu_H[i]))
+    U = np.interp(H, fit_z, fit_Uav[i,:])
+    I = np.interp(H, fit_z, fit_I[i,0,:])
+    print(("\t" + exposure_names[i] + '\t%0.2f\t%0.2f')%(U, 100*I))
 
 
 #Write the ABL file based on the fitted data that holdes all the profile 
